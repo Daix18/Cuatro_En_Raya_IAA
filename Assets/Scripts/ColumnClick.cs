@@ -9,6 +9,6 @@ public class ColumnClick : MonoBehaviour, IPointerClickHandler
     public void OnPointerClick(PointerEventData eventData)
     {
         gameManager.PlayerMove(columnIndex);
-        Debug.Log("Yeah he tryin somethin");
+        Debug.Log("Player moved");
     }
 }

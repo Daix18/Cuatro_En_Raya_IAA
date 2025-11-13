@@ -6,10 +6,9 @@ public class GameManager : MonoBehaviour
     public static int ROWS = 6;
     public static int COLUMNS = 7;
 
-    // 0 = vacío, 1 = jugador humano, -1 = IA
     public int[,] board = new int[COLUMNS, ROWS];
 
-    public Transform panel; // referencia al Panel del tablero
+    public Transform panel;
 
     void Start()
     {
@@ -33,9 +32,9 @@ public class GameManager : MonoBehaviour
         {
             if (board[column, row] == 0)
             {
-                board[column, row] = 1; // Jugador humano
+                board[column, row] = 1;
                 UpdateVisual(column, row, Color.red);
-                //StartCoroutine(AIMove());
+                //AI move here
                 return;
             }
         }
@@ -46,6 +45,6 @@ public class GameManager : MonoBehaviour
         Transform circle = panel.GetChild(column).GetChild(row);
         var image = circle.GetComponent<UnityEngine.UI.Image>();
         image.color = color;
-        Debug.Log(column + ", " + row + "-> color: " + color);
+        Debug.Log("Column " + column + ", Row " + row + " -> Color: " + color);
     }
 }
