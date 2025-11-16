@@ -10,9 +10,13 @@ public class GameManager : MonoBehaviour
 
     public Transform panel;
 
+    public NegaScoutAI NegaScoutAI;
+    int searchDepth = 6;
+
     void Start()
     {
         InitializeBoard();
+        NegaScoutAI = new NegaScoutAI();
     }
 
     void InitializeBoard()
@@ -35,16 +39,108 @@ public class GameManager : MonoBehaviour
                 board[column, row] = 1;
                 UpdateVisual(column, row, Color.red);
                 //AI move here
+                if (CheckWin(board,1))
+                {
+                    Debug.Log("Gana el player");
+                    return;
+                }
+                AIMove();
                 return;
             }
         }
     }
 
-    void UpdateVisual(int column, int row, Color color)
+    void AIMove()
     {
-        Transform circle = panel.GetChild(column).GetChild(row);
-        var image = circle.GetComponent<UnityEngine.UI.Image>();
-        image.color = color;
-        Debug.Log("Column " + column + ", Row " + row + " -> Color: " + color);
+        int aiPlayer = -1; // IA = -1 (amarillo)
+        int bestCol = NegaScoutAI.GetBestMove(board, searchDepth, aiPlayer);
+        Debug.Log("IA elige columna: " + bestCol);
+
+        if (bestCol < 0)
+        {
+            Debug.Log("La IA no encuentra movimientos válidos.");
+            return;
+        }
+
+        for (int row = 0; row < ROWS; row++)
+        {
+            if (board[bestCol, row] == 0)
+            {
+                board[bestCol, row] = aiPlayer;
+                UpdateVisual(bestCol, row, Color.yellow);
+
+                if (CheckWin(board, aiPlayer))
+                {
+                    Debug.Log("¡Gana la IA!");
+                }
+
+                return;
+            }
+        }
+    }
+    void UpdateVisual(int column, int row, Color color)
+    { 
+        {
+            Transform circle = panel.GetChild(column).GetChild(row);
+            var image = circle.GetComponent<UnityEngine.UI.Image>();
+            image.color = color;
+            Debug.Log("Column " + column + ", Row " + row + " -> Color: " + color);
+        }
+    }
+    bool CheckWin(int[,] b, int player)
+    {
+        // Horizontal
+        for (int c = 0; c < COLUMNS - 3; c++)
+        {
+            for (int r = 0; r < ROWS; r++)
+            {
+                if (b[c, r] == player &&
+                    b[c + 1, r] == player &&
+                    b[c + 2, r] == player &&
+                    b[c + 3, r] == player)
+                    return true;
+            }
+        }
+
+        // Vertical
+        for (int c = 0; c < COLUMNS; c++)
+        {
+            for (int r = 0; r < ROWS - 3; r++)
+            {
+                if (b[c, r] == player &&
+                    b[c, r + 1] == player &&
+                    b[c, r + 2] == player &&
+                    b[c, r + 3] == player)
+                    return true;
+            }
+        }
+
+        // Diagonal /
+        for (int c = 0; c < COLUMNS - 3; c++)
+        {
+            for (int r = 0; r < ROWS - 3; r++)
+            {
+                if (b[c, r] == player &&
+                    b[c + 1, r + 1] == player &&
+                    b[c + 2, r + 2] == player &&
+                    b[c + 3, r + 3] == player)
+                    return true;
+            }
+        }
+
+        // Diagonal \
+        for (int c = 0; c < COLUMNS - 3; c++)
+        {
+            for (int r = 3; r < ROWS; r++)
+            {
+                if (b[c, r] == player &&
+                    b[c + 1, r - 1] == player &&
+                    b[c + 2, r - 2] == player &&
+                    b[c + 3, r - 3] == player)
+                    return true;
+            }
+        }
+
+        return false;
     }
 }
