@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using static UnityEngine.Rendering.DebugUI.Table;
 
 public class NegaScoutAI
 {
@@ -210,31 +211,38 @@ public class NegaScoutAI
         return false;
     }
 
+    const int WIN_SCORE = 1000;
+    const int THREE_OPEN = 100;
+    const int TWO_OPEN = 10;
+    const int CENTER_WEIGHT = 6;
+
     int ScoreWindow(int[] window, int player)
     {
         int opp = -player;
-        int playerCount = 0;
-        int oppCount = 0;
-        int emptyCount = 0;
+        int aiCount = 0, oppCount = 0, emptyCount = 0;
 
         for (int i = 0; i < 4; i++)
         {
-            if (window[i] == player) playerCount++;
+            if (window[i] == player) aiCount++;
             else if (window[i] == opp) oppCount++;
             else emptyCount++;
         }
 
-        int s = 0;
+        if (aiCount > 0 && oppCount > 0) return 0;
 
-        // Configuraciones buenas para el jugador
-        if (playerCount == 3 && emptyCount == 1) s += 50;      // 3 en línea con hueco
-        else if (playerCount == 2 && emptyCount == 2) s += 10; // 2 en línea
+        // 4 en raya
+        if (aiCount == 4) return WIN_SCORE;
+        if (oppCount == 4) return -WIN_SCORE;
 
-        // Configuraciones peligrosas del rival (las penalizamos más)
-        if (oppCount == 3 && emptyCount == 1) s -= 80;         // bloquear 3 del rival
-        else if (oppCount == 2 && emptyCount == 2) s -= 10;
+        // 3 en raya con hueco
+        if (aiCount == 3 && emptyCount == 1) return THREE_OPEN;
+        if (oppCount == 3 && emptyCount == 1) return -THREE_OPEN;
 
-        return s;
+        // 2 en raya con 2 huecos
+        if (aiCount == 2 && emptyCount == 2) return TWO_OPEN;
+        if (oppCount == 2 && emptyCount == 2) return -TWO_OPEN;
+
+        return 0;
     }
 
     // --- Heurística sencilla para empezar ---
@@ -242,12 +250,20 @@ public class NegaScoutAI
     {
         // Si alguien ha ganado, valor grande / pequeño
         if (CheckWin(board, player))
-            return 100000;
+            return WIN_SCORE * 10;
         if (CheckWin(board, -player))
-            return -100000;
+            return -WIN_SCORE * 10;
 
         // Heurística muy básica: controlar el centro
         int score = 0;
+
+        int centerCol = COLUMNS / 2;
+
+        for (int r = 0; r < ROWS; r++)
+        {
+            if (board[centerCol, r] == player) score += CENTER_WEIGHT;
+            else if (board[centerCol, r] == -player) score -= CENTER_WEIGHT;
+        }
 
         // Horizontal
         for (int r = 0; r < ROWS; r++)
