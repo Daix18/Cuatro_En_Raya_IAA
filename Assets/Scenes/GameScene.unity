@@ -3397,6 +3397,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   panel: {fileID: 1930694215}
+  usarNegamaxAB: 1
 --- !u!4 &1812774322
 Transform:
   m_ObjectHideFlags: 0

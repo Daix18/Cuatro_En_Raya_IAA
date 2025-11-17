@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -10,13 +10,21 @@ public class GameManager : MonoBehaviour
 
     public Transform panel;
 
+    // AMBAS IAs
     public NegaScoutAI NegaScoutAI;
+    public NegamaxAB NegamaxAB;
+
+    [Header("Configuración IA")]
+    public bool usarNegamaxAB = true; // Cambia esto para elegir IA
     int searchDepth = 6;
 
     void Start()
     {
         InitializeBoard();
         NegaScoutAI = new NegaScoutAI();
+        NegamaxAB = new NegamaxAB();
+
+        Debug.Log("IA activa: " + (usarNegamaxAB ? "NegamaxAB" : "NegaScout"));
     }
 
     void InitializeBoard()
@@ -38,27 +46,47 @@ public class GameManager : MonoBehaviour
             {
                 board[column, row] = 1;
                 UpdateVisual(column, row, Color.red);
-                //AI move here
-                if (CheckWin(board,1))
+
+                if (CheckWin(board, 1))
                 {
                     Debug.Log("Gana el player");
                     return;
                 }
+
                 AIMove();
                 return;
             }
         }
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    // MÉTODO AIMove MODIFICADO
+    // ══════════════════════════════════════════════════════════════════
     void AIMove()
     {
-        int aiPlayer = -1; // IA = -1 (amarillo)
-        int bestCol = NegaScoutAI.GetBestMove(board, searchDepth, aiPlayer);
-        Debug.Log("IA elige columna: " + bestCol);
+        int aiPlayer = -1;
+        int bestCol;
+        string nombreIA = "";
+        long nodosVisitados = 0;
+
+        if (usarNegamaxAB)
+        {
+            bestCol = NegamaxAB.GetBestMove(board, searchDepth, aiPlayer);
+            nombreIA = "NEGAMAX AB";
+            nodosVisitados = NegamaxAB.NodesVisited;
+            Debug.Log($"🔵 NEGAMAX AB - Columna: {bestCol} - Nodos: {NegamaxAB.NodesVisited}");
+        }
+        else
+        {
+            bestCol = NegaScoutAI.GetBestMove(board, searchDepth, aiPlayer);
+            nombreIA = "NEGASCOUT";
+            nodosVisitados = NegaScoutAI.NodesVisited;
+            Debug.Log(" NEGASCOUT - Columna: {bestCol} - Nodos: {NegaScoutAI.NodesVisited}");
+        }
 
         if (bestCol < 0)
         {
-            Debug.Log("La IA no encuentra movimientos v�lidos.");
+            Debug.Log("La IA no encuentra movimientos válidos.");
             return;
         }
 
@@ -69,24 +97,28 @@ public class GameManager : MonoBehaviour
                 board[bestCol, row] = aiPlayer;
                 UpdateVisual(bestCol, row, Color.yellow);
 
+                // Mensaje final confirmando qué IA jugó
+                Debug.Log(" {nombreIA} jugó en columna {bestCol + 1} (visitó {nodosVisitados} nodos)");
+
                 if (CheckWin(board, aiPlayer))
                 {
-                    Debug.Log("�Gana la IA!");
+                    Debug.Log(" ¡Gana la IA ({nombreIA})!");
                 }
 
                 return;
             }
         }
     }
+    // ══════════════════════════════════════════════════════════════════
+
     void UpdateVisual(int column, int row, Color color)
-    { 
-        {
-            Transform circle = panel.GetChild(column).GetChild(row);
-            var image = circle.GetComponent<UnityEngine.UI.Image>();
-            image.color = color;
-            Debug.Log("Column " + column + ", Row " + row + " -> Color: " + color);
-        }
+    {
+        Transform circle = panel.GetChild(column).GetChild(row);
+        var image = circle.GetComponent<UnityEngine.UI.Image>();
+        image.color = color;
+        Debug.Log("Column " + column + ", Row " + row + " -> Color: " + color);
     }
+
     bool CheckWin(int[,] b, int player)
     {
         // Horizontal
@@ -142,5 +174,18 @@ public class GameManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    // Método adicional para cambiar IA durante el juego
+    public void CambiarIANegamaxAB()
+    {
+        usarNegamaxAB = true;
+        Debug.Log(" Cambiado a NEGAMAX AB");
+    }
+
+    public void CambiarIANegaScout()
+    {
+        usarNegamaxAB = false;
+        Debug.Log(" Cambiado a NEGASCOUT");
     }
 }
