@@ -74,7 +74,7 @@ public class GameManager : MonoBehaviour
             bestCol = NegamaxAB.GetBestMove(board, searchDepth, aiPlayer);
             nombreIA = "NEGAMAX AB";
             nodosVisitados = NegamaxAB.NodesVisited;
-            Debug.Log($"🔵 NEGAMAX AB - Columna: {bestCol} - Nodos: {NegamaxAB.NodesVisited}");
+            Debug.Log(" NEGAMAX AB - Columna: {bestCol} - Nodos: {NegamaxAB.NodesVisited}");
         }
         else
         {
