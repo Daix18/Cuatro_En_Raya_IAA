@@ -94,7 +94,8 @@ public class MiniMaxAI
                 if (isMaximizing)
                 {
                     // Turno de MAX
-                    bestScore = Math.Max(bestScore, score);
+                    if (score > bestScore)
+                        bestScore = score;
                     alpha = Math.Max(alpha, bestScore);
 
                     if (beta <= alpha)
@@ -103,7 +104,8 @@ public class MiniMaxAI
                 else
                 {
                     // Turno de MIN
-                    bestScore = Math.Min(bestScore, score);
+                    if (score < bestScore)
+                        bestScore = score;
                     beta = Math.Min(beta, bestScore);
 
                     if (beta <= alpha)
