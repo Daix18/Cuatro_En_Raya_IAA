@@ -10,6 +10,14 @@ public class GameManager : MonoBehaviour
 
     public Transform panel;
 
+    public enum AIType { MiniMax, NegamaxAB, NegaScout}
+    public AIType selectedAI;
+
+    public AIType aiType1;
+    public AIType aiType2;
+
+    bool isIAvsIAMode = false;
+
     // AMBAS IAs
     public NegaScoutAI NegaScoutAI;
     public NegamaxAB NegamaxAB;
@@ -40,6 +48,8 @@ public class GameManager : MonoBehaviour
 
     public void PlayerMove(int column)
     {
+        if (isIAvsIAMode) return;
+
         for (int row = 0; row < ROWS; row++)
         {
             if (board[column, row] == 0)
@@ -53,7 +63,7 @@ public class GameManager : MonoBehaviour
                     return;
                 }
 
-                AIMove();
+                AIMoveSingle();
                 return;
             }
         }
@@ -62,7 +72,7 @@ public class GameManager : MonoBehaviour
     // ══════════════════════════════════════════════════════════════════
     // MÉTODO AIMove MODIFICADO
     // ══════════════════════════════════════════════════════════════════
-    void AIMove()
+    void AIMoveSingle()
     {
         int aiPlayer = -1;
         int bestCol;
