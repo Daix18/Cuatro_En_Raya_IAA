@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using static GameManager;
 
 public class GameManager : MonoBehaviour
 {
@@ -11,12 +12,16 @@ public class GameManager : MonoBehaviour
     public Transform panel;
 
     public enum AIType { MiniMax, NegamaxAB, NegaScout}
+    public enum GameMode { PlayerVSIA, IAvsIA}
     public AIType selectedAI;
 
-    public AIType aiType1;
-    public AIType aiType2;
+    public AIType playerVsAIType;
+    public AIType iaType1;
+    public AIType iaType2;
 
     bool isIAvsIAMode = false;
+
+    public GameMode currentMode = GameMode.PlayerVSIA;
 
     // AMBAS IAs
     public NegaScoutAI NegaScoutAI;
@@ -186,16 +191,26 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
-    // Método adicional para cambiar IA durante el juego
-    public void CambiarIANegamaxAB()
+    //Funciones para seleccionar ia y player
+
+    public void SetPlayerVsAI(int aiIndex)
     {
-        usarNegamaxAB = true;
-        Debug.Log(" Cambiado a NEGAMAX AB");
+        playerVsAIType = (AIType)aiIndex;
+        Debug.Log($"Player vs IA: ahora usas {playerVsAIType}");
     }
 
-    public void CambiarIANegaScout()
+    public void SetIA1Type(int aiIndex)
     {
-        usarNegamaxAB = false;
-        Debug.Log(" Cambiado a NEGASCOUT");
+        iaType1 = (AIType)aiIndex;
+        Debug.Log($"IA1 ahora es {iaType1}");
     }
+
+    public void SetIA2Type(int aiIndex)
+    {
+        iaType2 = (AIType)aiIndex;
+        Debug.Log($"IA2 ahora es {iaType2}");
+    }
+
+
+
 }
