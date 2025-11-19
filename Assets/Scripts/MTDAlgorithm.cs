@@ -1,197 +1,264 @@
 using System;
 using System.Collections.Generic;
-using Unity.VisualScripting;
+using UnityEngine;
+/* using Unity.VisualScripting;
 using static UnityEngine.Rendering.DebugUI.Table;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Threading.Tasks; */
 
 public class MTDAlgorithm
 {
-    //    // Variable para depuración (saber qué tan profundo llegó realmente)
-    //    private int _maximumExploredDepth = 0;
+    private const int INF = 999999;
+    public long NodesVisited = 0;
 
-    //    // La Memoria Caché (donde guardamos posiciones ya calculadas)
-    //    private TranspositionTable _transpositionTable;
+    private int maxDepth;
 
-    //    // El generador de IDs únicos para los tableros
-    //    private ZobristKey _keys;
+    public int GetBestMove(int[,] board, int depth, int player)
+    {
+        NodesVisited = 0;
+        maxDepth = depth;
 
-    //    // _globalGuess: La "intuición" de la IA.
-    //    // MTD(f) basado en resultado del turno anterior como punto de partida para este nuevo turno.
-    //    // Esto hace que la búsqueda sea mucho más rápida.
-    //    private int _globalGuess = int.MaxValue;
+        int guess = 0;
+        int bestMove;
 
-    //    // Límite de intentos para adivinar  (evita bucles infinitos)
-    //    public const int MaxIterations = 10;
+        int result = MTD(board, player, guess, depth, out bestMove);
 
-    //    // Profundidad de búsqueda:  7 movimientos en el futuro.
-    //    public const int MaxDepth = 7;
+        Debug.Log($"[MTD(f)] BestMove={bestMove}, Score={result}, Nodes={NodesVisited}");
+        return bestMove;
+    }
 
-    //    // Constructor: Inicializa las herramientas (llaves y tabla vacía)
-    //    public MTDAlgorithm()
-    //    {
-    //        _keys = new ZobristKey();
-    //        _transpositionTable = new TranspositionTable();
-    //    }
+    // ============================================================
+    //                   MTD(f) ALGORITHM
+    // ============================================================
+    private int MTD(int[,] board, int player, int firstGuess, int depth, out int bestMove)
+    {
+        int lowerBound = -INF;
+        int upperBound = INF;
+        int guess = firstGuess;
 
+        bestMove = -1;
 
-    //ScoringMove Test(GameState board, int depth, int gamma)
-    //{
-    //    int bestMove, bestScore;
-    //    GameState newBoard;
-    //    ScoringMove scoringMove = new ScoringMove();
+        while (lowerBound < upperBound)
+        {
+            int beta = (guess == lowerBound) ? guess + 1 : guess;
+            int score = NegamaxRoot(board, player, depth, beta - 1, beta, out bestMove);
 
-    //    // Actualizamos la estadística de profundidad (solo informativo)
-    //    if (depth > _maximumExploredDepth) _maximumExploredDepth = depth;
+            if (score < beta) upperBound = score;
+            else lowerBound = score;
 
-    //    // --- PASO 1: CONSULTAR LA MEMORIA ---
+            guess = score;
+        }
 
-    //    // Calculamos el Hash Zobrist y buscamos en la tabla si ya estuvimos aquí
-    //    var found = _transpositionTable.TryGetValue(_keys.HashValue(board), out var record);
+        return guess;
+    }
 
-    //    if (found) // ¡Lo encontramos!
-    //    {
-    //        // Verificamos si el registro guardado es lo suficientemente profundo.
-    //        // Si necesitamos mirar 5 pasos adelante, pero el registro solo miró 2, no nos sirve.
-    //        if (record.depth > MaxDepth - depth)
-    //        {
-    //            // Lógica de MTD/Alpha-Beta:
-    //            // Si el peor escenario guardado ya es mejor que gamma, cortamos y devolvemos eso.
-    //            if (record.minScore > gamma)
-    //            {
-    //                scoringMove = new ScoringMove(record.minScore, record.bestMove);
-    //                return scoringMove;
-    //            }
-    //            // Si el mejor escenario guardado es peor que gamma, cortamos.
-    //            if (record.maxScore < gamma)
-    //            {
-    //                scoringMove = new ScoringMove(record.maxScore, record.bestMove);
-    //                return scoringMove;
-    //            }
-    //        }
-    //    }
-    //    // Si no encontramos nada o no servía, creamos un registro nuevo vacío para llenarlo después.
-    //    else
-    //    {
-    //        record = new BoardRecord();
-    //        record.hashValue = _keys.HashValue(board);
-    //        record.depth = MaxDepth - depth;
-    //        record.minScore = int.MinValue; // -Infinito
-    //        record.maxScore = int.MaxValue; // +Infinito
-    //    }
+    // ============================================================
+    //          ROOT NEGAMAX — RETURNS BEST MOVE
+    // ============================================================
+    private int NegamaxRoot(int[,] board, int player, int depth, int alpha, int beta, out int bestMove)
+    {
+        bestMove = -1;
+        int bestScore = -INF;
 
+        List<int> moves = GetValidMoves(board);
 
-    //    // Si el juego terminó (Game Over) O si alcanzamos la profundidad máxima (7)
-    //    if (board.IsEnded || depth == MaxDepth)
-    //    {
-    //        // Aquí se aplica lógica NEGAMAX (Maximizar mi puntaje, minimizar el del rival)
+        // Order moves: try central columns first (improves pruning)
+        moves.Sort((a, b) =>
+            Math.Abs(b - (GameManager.COLUMNS / 2)).CompareTo(
+            Math.Abs(a - (GameManager.COLUMNS / 2)))
+        );
 
-    //        // Si es un turno par (mi turno), evalúo normal.
-    //        if (depth % 2 == 0)
-    //        {
-    //            record.maxScore = board.Evaluate();
-    //        }
-    //        // Si es turno impar (turno del rival), invierto el signo.
-    //        else
-    //        {
-    //            record.maxScore = -board.Evaluate();
-    //        }
+        foreach (int col in moves)
+        {
+            int[,] next = SimulateMove(board, col, player);
+            int score;
 
-    //        // En un nodo hoja, el mínimo y máximo son iguales (es un valor exacto) calculado es lo q vale el tablero en realidad no una suposicion
-    //        record.minScore = record.maxScore;
+            if (CheckWin(next, player))
+            {
+                score = 1000000; // winning move
+            }
+            else
+            {
+                score = -Negamax(next, -player, depth - 1, -beta, -alpha);
+            }
 
-    //        // Guardamos en memoria
-    //        _transpositionTable[record.hashValue] = record;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestMove = col;
+            }
 
-    //        // Devolvemos el resultado (move -1 porque aquí no movemos, solo evaluamos)
-    //        scoringMove = new ScoringMove(record.maxScore, -1);
-    //    }
-    //    // --- PASO 3: EXPANSIÓN (RECURSIVIDAD) ---
-    //    else
-    //    {
-    //          bestMove = 0;
-    //          bestScore = int.MinValue; // Empezamos asumiendo la peor puntuación posible
-    //          int[] possibleMoves;
+            alpha = Math.Max(alpha, score);
+            if (alpha >= beta)
+                break; // pruning
+        }
 
-    //          // Obtenemos la lista de movimientos (0, 1, 2, 3, 4, 5)
-    //           possibleMoves = board.PossibleMoves();
+        return bestScore;
+    }
 
-    //            foreach (int move in possibleMoves)
-    //            {
-    //                // Simulamos el movimiento creando un nuevo tablero clonado
-    //                newBoard = board.BoardFromMove(move);
+    // ============================================================
+    //         NEGAMAX + ALFA-BETA
+    // ============================================================
+    private int Negamax(int[,] board, int player, int depth, int alpha, int beta)
+    {
+        NodesVisited++;
 
-    //                // RECURSIVIDAD MÁGICA:
-    //                // Llamamos a Test para el siguiente turno (depth + 1).
-    //                // Usamos '-gamma' porque cambiamos de perspectiva (mi rival intenta ganarme).
-    //                scoringMove = Test(newBoard, (byte)(depth + 1), -gamma);
+        if (depth == 0 || IsTerminal(board))
+            return Evaluate(board, player);
 
-    //                // El rival nos devuelve un score favorable para él. y desfavorable pra mi. Para mi su score vale lo contrsrio q para el pq me perjudica Invertimos el score.
-    //                int invertedScore = -scoringMove.Score;
+        List<int> moves = GetValidMoves(board);
+        if (moves.Count == 0) return 0;
 
-    //                // Si este movimiento es mejor que el mejor que tenía hasta ahora, lo guardo.
-    //                if (invertedScore > bestScore)
-    //                {
-    //                    record.bestMove = move;
-    //                    bestScore = invertedScore;
-    //                    bestMove = move;
-    //                }
+        moves.Sort((a, b) =>
+            Math.Abs(b - (GameManager.COLUMNS / 2)).CompareTo(
+            Math.Abs(a - (GameManager.COLUMNS / 2))));
 
-    //                // Actualización de cotas (Alpha-Beta) para la Tabla de Transposición
-    //                if (bestScore < gamma)
-    //                {
-    //                    record.maxScore = bestScore; // Cota superior
-    //                }
-    //                else
-    //                {
-    //                    record.minScore = bestScore; // Cota inferior
-    //                }
-    //            }
+        int best = -INF;
 
-    //            // Guardamos el análisis en la memoria antes de salir
-    //            _transpositionTable[record.hashValue] = record;
+        foreach (int col in moves)
+        {
+            int[,] next = SimulateMove(board, col, player);
+            int score;
 
-    //            // Devolvemos el mejor movimiento encontrado en esta rama
-    //            scoringMove = new ScoringMove(bestScore, bestMove);
-    //    }
-    //        return scoringMove;
-    //}
+            if (CheckWin(next, player))
+            {
+                score = 1000000 / ((maxDepth - depth) + 1);
+            }
+            else
+            {
+                score = -Negamax(next, -player, depth - 1, -beta, -alpha);
+            }
 
-    //public ScoringMove? MTD(GameState board) // La función principal que inicia MTD(f)
-    //{
-    //    int i;
-    //    int gamma, guess = _globalGuess;// guesss empieza siendo una suposicion inicial del pasado. gamma es la suposicion actual en cada iteracion. guess se actualiza en cada iteracion con el resultado de Test
-    //    ScoringMove scoringMove = null;
-    //    _maximumExploredDepth = 0;// Reiniciamos la profundidad explorada cada vez que llamamos a MTD
+            if (score > best)
+                best = score;
 
-    //    string output = "";
+            alpha = Math.Max(alpha, score);
+            if (alpha >= beta)
+                break;
+        }
 
-    //    for (i = 0; i < MaxIterations; i++)
-    //    {
-    //        gamma = guess;// Establecemos gamma como la suposición actual. guess será actualizada en cada iteración con el resultado de Test anterior
-    //        scoringMove = Test(board, 0, gamma - 1);// Llamada a Test con gamma-1 y depth 0
-    //        guess = scoringMove.Score;
-    //        if (gamma == guess)// Si la suposición es correcta, terminamos
-    //        {
-    //            _globalGuess = guess;// Actualizamos la suposición global para la próxima vez
-    //            output += "guess encontrado en iteracion " + i;
-    //            return scoringMove;
-    //        }
-    //    }
-    //    output += "guess no encontrado";
-    //    _globalGuess = guess;
+        return best;
+    }
 
-    //    return scoringMove;
-    //}
+    // ============================================================
+    //               HELPER FUNCTIONS FOR YOUR BOARD
+    // ============================================================
+    private List<int> GetValidMoves(int[,] board)
+    {
+        List<int> moves = new List<int>();
+        for (int c = 0; c < GameManager.COLUMNS; c++)
+            if (board[c, GameManager.ROWS - 1] == 0)
+                moves.Add(c);
+        return moves;
+    }
 
-    //public int GetBestMove(int[,] board, int depth, int aiPlayer)
-    //{
-    //    //// 1. Clonamos el tablero para no modificar el original
-    //    int[,] boardClone = (int[,])board.Clone();
-    //    // 2. Creamos el "Tablero Inteligente" (Wrapper)
-    //    MTDBoard smartBoard = new MTDBoard(boardClone, _zk);
-    //}
+    private int[,] SimulateMove(int[,] board, int column, int player)
+    {
+        int[,] newBoard = board.Clone() as int[,];
 
+        for (int r = 0; r < GameManager.ROWS; r++)
+        {
+            if (newBoard[column, r] == 0)
+            {
+                newBoard[column, r] = player;
+                break;
+            }
+        }
 
+        return newBoard;
+    }
+
+    private bool IsTerminal(int[,] board)
+    {
+        return CheckWin(board, 1) || CheckWin(board, -1) || GetValidMoves(board).Count == 0;
+    }
+
+    // ============================================================
+    //          WIN CHECK (copied from your GameManager)
+    // ============================================================
+    private bool CheckWin(int[,] b, int player)
+    {
+        int C = GameManager.COLUMNS;
+        int R = GameManager.ROWS;
+
+        // Horizontal
+        for (int c = 0; c < C - 3; c++)
+            for (int r = 0; r < R; r++)
+                if (b[c, r] == player && b[c + 1, r] == player && b[c + 2, r] == player && b[c + 3, r] == player)
+                    return true;
+
+        // Vertical
+        for (int c = 0; c < C; c++)
+            for (int r = 0; r < R - 3; r++)
+                if (b[c, r] == player && b[c, r + 1] == player && b[c, r + 2] == player && b[c, r + 3] == player)
+                    return true;
+
+        // Diagonal /
+        for (int c = 0; c < C - 3; c++)
+            for (int r = 0; r < R - 3; r++)
+                if (b[c, r] == player && b[c + 1, r + 1] == player && b[c + 2, r + 2] == player && b[c + 3, r + 3] == player)
+                    return true;
+
+        // Diagonal \
+        for (int c = 0; c < C - 3; c++)
+            for (int r = 3; r < R; r++)
+                if (b[c, r] == player && b[c + 1, r - 1] == player && b[c + 2, r - 2] == player && b[c + 3, r - 3] == player)
+                    return true;
+
+        return false;
+    }
+
+    // ============================================================
+    //                   EVALUATION FUNCTION
+    // ============================================================
+    private int Evaluate(int[,] board, int player)
+    {
+        int score = 0;
+
+        // Bonus por controlar el centro
+        int center = GameManager.COLUMNS / 2;
+        for (int r = 0; r < GameManager.ROWS; r++)
+            if (board[center, r] == player) score += 3;
+
+        // Ventanas de 4
+        for (int c = 0; c < GameManager.COLUMNS; c++)
+        {
+            for (int r = 0; r < GameManager.ROWS; r++)
+            {
+                if (c + 3 < GameManager.COLUMNS)
+                    score += EvaluateWindow(board, c, r, 1, 0, player);
+                if (r + 3 < GameManager.ROWS)
+                    score += EvaluateWindow(board, c, r, 0, 1, player);
+                if (c + 3 < GameManager.COLUMNS && r + 3 < GameManager.ROWS)
+                    score += EvaluateWindow(board, c, r, 1, 1, player);
+                if (c + 3 < GameManager.COLUMNS && r - 3 >= 0)
+                    score += EvaluateWindow(board, c, r, 1, -1, player);
+            }
+        }
+
+        return score;
+    }
+
+    private int EvaluateWindow(int[,] board, int c, int r, int dc, int dr, int player)
+    {
+        int my = 0, opp = 0, empty = 0;
+
+        for (int i = 0; i < 4; i++)
+        {
+            int val = board[c + dc * i, r + dr * i];
+            if (val == player) my++;
+            else if (val == 0) empty++;
+            else opp++;
+        }
+
+        if (my == 4) return 10000;
+        if (my == 3 && empty == 1) return 100;
+        if (my == 2 && empty == 2) return 10;
+
+        if (opp == 3 && empty == 1) return -80;
+        if (opp == 2 && empty == 2) return -5;
+
+        return 0;
+    }
 }
