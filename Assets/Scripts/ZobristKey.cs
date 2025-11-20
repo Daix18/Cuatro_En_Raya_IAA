@@ -7,8 +7,6 @@ public class ZobristKey
     // Índice 0-41 representa la casilla.
     // Índice 0 = Player 1, Índice 1 = AI (-1).
     public int[,] Keys { get; set; }
-
-    public const int NumKeys = 10 * 6;
     private const int ROWS = 6; // Necesario para calcular el índice lineal
 
     public ZobristKey()
@@ -37,19 +35,50 @@ public class ZobristKey
     {
         return Keys[index, PlayerIndex];
     }
-    
- 
-   
-    public int HashValue (int c, int r, int player)
+
+
+    public int HashValue(int[,] board)
     {
-           int hashValue = 0;
-           int currentplayerIndex = (player == 1) ? 0 : 1;
+        int currentHash = 0;
+        int rows = board.GetLength(0);
+        int cols = board.GetLength(1);
 
-            // Calculamos el índice lineal 
-            int linearIndex = c * ROWS + r; //indice lineal de 0 a 41 porque hay 42 casillas
+        int position;
+        int playerIndex; // Será 0 o 1 para buscar en las Keys
+        int cellValue;
 
-            hashValue ^= GetKey(linearIndex, currentplayerIndex);
-        return hashValue;
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < cols; col++)
+            {
+                cellValue = board[row, col];
+
+                // Asumiendo que 0 sigue siendo espacio vacío
+                if (cellValue != 0)
+                {
+                    // 1. Calculamos la posición lineal
+                    position = (row * cols) + col;
+
+                    // 2. Traducimos tus valores (-1 y 1) a índices válidos (0 y 1)
+                    // Si es 1 (Oponente) -> Usamos índice 0
+                    // Si es -1 (AI)      -> Usamos índice 1
+                    if (cellValue == 1)
+                    {
+                        playerIndex = 0;
+                    }
+                    else // Asumimos que es -1
+                    {
+                        playerIndex = 1;
+                    }
+
+                    // 3. Obtenemos la clave y aplicamos XOR
+                    currentHash ^= GetKey(position, playerIndex);
+                }
+            }
+        }
+
+        return currentHash;
     }
+
 }
 

@@ -1,264 +1,270 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-/* using Unity.VisualScripting;
-using static UnityEngine.Rendering.DebugUI.Table;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks; */
+
+// --- EL STRUCT---//
+public struct ScoringMove
+{
+    public int Move;
+    public int Score;
+
+    public ScoringMove(int _move, int _score)
+    {
+        Move = _move;
+        Score = _score;
+    }
+}
+
 
 public class MTDAlgorithm
 {
-    private const int INF = 999999;
-    public long NodesVisited = 0;
+    // CONSTANTES
+    const int ROWS = 6;
+    const int COLUMNS = 7;
 
-    private int maxDepth;
+    // NOTA: Estas constantes viejas ya no se usan tanto porque la lógica nueva 
+    // usa números directos en ScoreWindow, pero las dejamos para evitar errores.
+    const int WIN_SCORE = 100000;
 
-    public int GetBestMove(int[,] board, int depth, int player)
+    // --- NUEVA TABLA DE EVALUACIÓN (Heatmap) ---
+    // Esto le dice a la IA qué casillas son estratégicamente mejores por defecto.
+    private readonly int[,] _evaluationTable = new int[7, 6]
     {
-        NodesVisited = 0;
-        maxDepth = depth;
+            {3, 4, 5, 7, 5, 4}, // Columna 0
+            {4, 6, 8, 10, 8, 6}, // Columna 1
+            {5, 8, 11, 13, 11, 8}, // Columna 2
+            {7, 10, 13, 16, 13, 10}, // Columna 3 (Centro)
+            {5, 8, 11, 13, 11, 8}, // Columna 4
+            {4, 6, 8, 10, 8, 6}, // Columna 5
+            {3, 4, 5, 7, 5, 4}  // Columna 6
+    };
 
-        int guess = 0;
-        int bestMove;
+    private int _maximumExploredDepth = 0;
+    private TranspositionTable _transpositionTable;
+    private ZobristKey _keys;
+    private int _globalGuess = 0;
 
-        int result = MTD(board, player, guess, depth, out bestMove);
+    public const int MaxIterations = 10;
+    public const int MaxDepth = 7;
 
-        Debug.Log($"[MTD(f)] BestMove={bestMove}, Score={result}, Nodes={NodesVisited}");
-        return bestMove;
+    public MTDAlgorithm()
+    {
+        _keys = new ZobristKey();
+        _transpositionTable = new TranspositionTable();
     }
 
-    // ============================================================
-    //                   MTD(f) ALGORITHM
-    // ============================================================
-    private int MTD(int[,] board, int player, int firstGuess, int depth, out int bestMove)
+    // --- LÓGICA MTD(f) (Sin cambios aquí) ---
+    ScoringMove Test(int[,] board, int depth, int gamma)
     {
-        int lowerBound = -INF;
-        int upperBound = INF;
-        int guess = firstGuess;
+        int bestMove = 0, bestScore = int.MinValue;
+        ScoringMove scoringMove = new ScoringMove();
+        int currentPlayer = (depth % 2 == 0) ? -1 : 1;
 
-        bestMove = -1;
+        if (depth > _maximumExploredDepth) _maximumExploredDepth = depth;
 
-        while (lowerBound < upperBound)
+        var found = _transpositionTable.TryGetValue(_keys.HashValue(board), out var record);
+
+        if (found && record.depth >= MaxDepth - depth)
         {
-            int beta = (guess == lowerBound) ? guess + 1 : guess;
-            int score = NegamaxRoot(board, player, depth, beta - 1, beta, out bestMove);
-
-            if (score < beta) upperBound = score;
-            else lowerBound = score;
-
-            guess = score;
+            if (record.minScore > gamma) return new ScoringMove(record.bestMove, record.minScore);
+            if (record.maxScore < gamma) return new ScoringMove(record.bestMove, record.maxScore);
+        }
+        else if (!found)
+        {
+            record = new BoardRecord
+            {
+                hashValue = _keys.HashValue(board),
+                depth = MaxDepth - depth,
+                minScore = int.MinValue,
+                maxScore = int.MaxValue
+            };
         }
 
-        return guess;
-    }
-
-    // ============================================================
-    //          ROOT NEGAMAX — RETURNS BEST MOVE
-    // ============================================================
-    private int NegamaxRoot(int[,] board, int player, int depth, int alpha, int beta, out int bestMove)
-    {
-        bestMove = -1;
-        int bestScore = -INF;
-
-        List<int> moves = GetValidMoves(board);
-
-        // Order moves: try central columns first (improves pruning)
-        moves.Sort((a, b) =>
-            Math.Abs(b - (GameManager.COLUMNS / 2)).CompareTo(
-            Math.Abs(a - (GameManager.COLUMNS / 2)))
-        );
-
-        foreach (int col in moves)
+        if (IsTerminal(board) || depth == MaxDepth)
         {
-            int[,] next = SimulateMove(board, col, player);
-            int score;
-
-            if (CheckWin(next, player))
-            {
-                score = 1000000; // winning move
-            }
-            else
-            {
-                score = -Negamax(next, -player, depth - 1, -beta, -alpha);
-            }
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestMove = col;
-            }
-
-            alpha = Math.Max(alpha, score);
-            if (alpha >= beta)
-                break; // pruning
+            int eval = Evaluate(board, currentPlayer);
+            record.maxScore = eval;
+            record.minScore = eval;
+            _transpositionTable[record.hashValue] = record;
+            return new ScoringMove(-1, eval);
         }
 
-        return bestScore;
-    }
+        List<int> moves = GetOrderedMoves(board);
+        if (moves.Count == 0) return new ScoringMove(-1, 0);
 
-    // ============================================================
-    //         NEGAMAX + ALFA-BETA
-    // ============================================================
-    private int Negamax(int[,] board, int player, int depth, int alpha, int beta)
-    {
-        NodesVisited++;
-
-        if (depth == 0 || IsTerminal(board))
-            return Evaluate(board, player);
-
-        List<int> moves = GetValidMoves(board);
-        if (moves.Count == 0) return 0;
-
-        moves.Sort((a, b) =>
-            Math.Abs(b - (GameManager.COLUMNS / 2)).CompareTo(
-            Math.Abs(a - (GameManager.COLUMNS / 2))));
-
-        int best = -INF;
-
-        foreach (int col in moves)
+        foreach (int move in moves)
         {
-            int[,] next = SimulateMove(board, col, player);
-            int score;
+            ApplyMove(board, move, currentPlayer);
+            scoringMove = Test(board, depth + 1, -gamma);
+            int invertedScore = -scoringMove.Score;
+            UndoMove(board, move);
 
-            if (CheckWin(next, player))
+            if (invertedScore > bestScore)
             {
-                score = 1000000 / ((maxDepth - depth) + 1);
+                bestScore = invertedScore;
+                bestMove = move;
             }
-            else
-            {
-                score = -Negamax(next, -player, depth - 1, -beta, -alpha);
-            }
-
-            if (score > best)
-                best = score;
-
-            alpha = Math.Max(alpha, score);
-            if (alpha >= beta)
-                break;
         }
 
-        return best;
+        if (bestScore < gamma) record.maxScore = bestScore;
+        else record.minScore = bestScore;
+
+        record.bestMove = bestMove;
+        _transpositionTable[record.hashValue] = record;
+
+        return new ScoringMove(bestMove, bestScore);
     }
 
-    // ============================================================
-    //               HELPER FUNCTIONS FOR YOUR BOARD
-    // ============================================================
-    private List<int> GetValidMoves(int[,] board)
+    public int? MTD(int[,] board)
+    {
+        int gamma, guess = _globalGuess;
+        ScoringMove scoringMove = new ScoringMove(-1, 0);
+        _maximumExploredDepth = 0;
+
+        for (int i = 0; i < MaxIterations; i++)
+        {
+            gamma = guess;
+            scoringMove = Test(board, 0, gamma - 1);
+            guess = scoringMove.Score;
+            if (gamma == guess)
+            {
+                _globalGuess = guess;
+                return scoringMove.Move;
+            }
+        }
+        _globalGuess = guess;
+        return scoringMove.Move;
+    }
+
+    // --- UTILIDADES PRIVADAS ---
+    private bool IsColumnPlayable(int[,] board, int col) => board[col, ROWS - 1] == 0;
+
+    private void ApplyMove(int[,] board, int col, int player)
+    {
+        for (int r = 0; r < ROWS; r++)
+            if (board[col, r] == 0) { board[col, r] = player; return; }
+    }
+
+    private void UndoMove(int[,] board, int col)
+    {
+        for (int r = ROWS - 1; r >= 0; r--)
+            if (board[col, r] != 0) { board[col, r] = 0; return; }
+    }
+
+    private List<int> GetOrderedMoves(int[,] board)
     {
         List<int> moves = new List<int>();
-        for (int c = 0; c < GameManager.COLUMNS; c++)
-            if (board[c, GameManager.ROWS - 1] == 0)
-                moves.Add(c);
+        // Orden optimizado: Centro primero (columna 3), luego lados
+        int[] order = { 3, 2, 4, 1, 5, 0, 6 };
+        foreach (int c in order) if (IsColumnPlayable(board, c)) moves.Add(c);
         return moves;
     }
 
-    private int[,] SimulateMove(int[,] board, int column, int player)
+    private bool IsTerminal(int[,] board) => CheckWin(board, 1) || CheckWin(board, -1) || IsBoardFull(board);
+
+    private bool IsBoardFull(int[,] board)
     {
-        int[,] newBoard = board.Clone() as int[,];
-
-        for (int r = 0; r < GameManager.ROWS; r++)
-        {
-            if (newBoard[column, r] == 0)
-            {
-                newBoard[column, r] = player;
-                break;
-            }
-        }
-
-        return newBoard;
+        for (int c = 0; c < COLUMNS; c++) if (board[c, ROWS - 1] == 0) return false;
+        return true;
     }
 
-    private bool IsTerminal(int[,] board)
+    private bool CheckWin(int[,] b, int p)
     {
-        return CheckWin(board, 1) || CheckWin(board, -1) || GetValidMoves(board).Count == 0;
-    }
-
-    // ============================================================
-    //          WIN CHECK (copied from your GameManager)
-    // ============================================================
-    private bool CheckWin(int[,] b, int player)
-    {
-        int C = GameManager.COLUMNS;
-        int R = GameManager.ROWS;
-
-        // Horizontal
-        for (int c = 0; c < C - 3; c++)
-            for (int r = 0; r < R; r++)
-                if (b[c, r] == player && b[c + 1, r] == player && b[c + 2, r] == player && b[c + 3, r] == player)
-                    return true;
-
-        // Vertical
-        for (int c = 0; c < C; c++)
-            for (int r = 0; r < R - 3; r++)
-                if (b[c, r] == player && b[c, r + 1] == player && b[c, r + 2] == player && b[c, r + 3] == player)
-                    return true;
-
-        // Diagonal /
-        for (int c = 0; c < C - 3; c++)
-            for (int r = 0; r < R - 3; r++)
-                if (b[c, r] == player && b[c + 1, r + 1] == player && b[c + 2, r + 2] == player && b[c + 3, r + 3] == player)
-                    return true;
-
-        // Diagonal \
-        for (int c = 0; c < C - 3; c++)
-            for (int r = 3; r < R; r++)
-                if (b[c, r] == player && b[c + 1, r - 1] == player && b[c + 2, r - 2] == player && b[c + 3, r - 3] == player)
-                    return true;
-
+        // Verificación rápida de victoria
+        for (int c = 0; c < COLUMNS - 3; c++)
+            for (int r = 0; r < ROWS; r++)
+                if (b[c, r] == p && b[c + 1, r] == p && b[c + 2, r] == p && b[c + 3, r] == p) return true;
+        for (int c = 0; c < COLUMNS; c++)
+            for (int r = 0; r < ROWS - 3; r++)
+                if (b[c, r] == p && b[c, r + 1] == p && b[c, r + 2] == p && b[c, r + 3] == p) return true;
+        for (int c = 0; c < COLUMNS - 3; c++)
+            for (int r = 0; r < ROWS - 3; r++)
+                if (b[c, r] == p && b[c + 1, r + 1] == p && b[c + 2, r + 2] == p && b[c + 3, r + 3] == p) return true;
+        for (int c = 0; c < COLUMNS - 3; c++)
+            for (int r = 3; r < ROWS; r++)
+                if (b[c, r] == p && b[c + 1, r - 1] == p && b[c + 2, r - 2] == p && b[c + 3, r - 3] == p) return true;
         return false;
     }
 
-    // ============================================================
-    //                   EVALUATION FUNCTION
-    // ============================================================
+    // ==========================================
+    //      AQUÍ ESTÁN LAS NUEVAS FUNCIONES
+    // ==========================================
+
+    // --- EVALUACIÓN OPTIMIZADA ---
     private int Evaluate(int[,] board, int player)
     {
         int score = 0;
 
-        // Bonus por controlar el centro
-        int center = GameManager.COLUMNS / 2;
-        for (int r = 0; r < GameManager.ROWS; r++)
-            if (board[center, r] == player) score += 3;
+        // 1. Puntuación Posicional (Heatmap)
+        for (int c = 0; c < COLUMNS; c++)
+            for (int r = 0; r < ROWS; r++)
+                if (board[c, r] == player) score += _evaluationTable[c, r];
+                else if (board[c, r] == -player) score -= _evaluationTable[c, r];
 
-        // Ventanas de 4
-        for (int c = 0; c < GameManager.COLUMNS; c++)
-        {
-            for (int r = 0; r < GameManager.ROWS; r++)
-            {
-                if (c + 3 < GameManager.COLUMNS)
-                    score += EvaluateWindow(board, c, r, 1, 0, player);
-                if (r + 3 < GameManager.ROWS)
-                    score += EvaluateWindow(board, c, r, 0, 1, player);
-                if (c + 3 < GameManager.COLUMNS && r + 3 < GameManager.ROWS)
-                    score += EvaluateWindow(board, c, r, 1, 1, player);
-                if (c + 3 < GameManager.COLUMNS && r - 3 >= 0)
-                    score += EvaluateWindow(board, c, r, 1, -1, player);
-            }
-        }
+        // 2. Análisis de Ventanas (Pasando coordenadas, NO arrays)
+
+        // Horizontal (-)
+        for (int r = 0; r < ROWS; r++)
+            for (int c = 0; c < COLUMNS - 3; c++)
+                score += ScoreWindow(board, c, r, 1, 0, player);
+
+        // Vertical (|)
+        for (int c = 0; c < COLUMNS; c++)
+            for (int r = 0; r < ROWS - 3; r++)
+                score += ScoreWindow(board, c, r, 0, 1, player);
+
+        // Diagonal Ascendente (/)
+        for (int c = 0; c < COLUMNS - 3; c++)
+            for (int r = 0; r < ROWS - 3; r++)
+                score += ScoreWindow(board, c, r, 1, 1, player);
+
+        // Diagonal Descendente (\)
+        for (int c = 0; c < COLUMNS - 3; c++)
+            for (int r = 3; r < ROWS; r++) // Nota: empieza en r=3 porque va hacia abajo
+                score += ScoreWindow(board, c, r, 1, -1, player);
 
         return score;
     }
 
-    private int EvaluateWindow(int[,] board, int c, int r, int dc, int dr, int player)
+    // Ahora recibe el tablero y direcciones, no crea arrays nuevos
+    private int ScoreWindow(int[,] board, int c0, int r0, int dc, int dr, int player)
     {
-        int my = 0, opp = 0, empty = 0;
+        int opp = -player;
+        int myCount = 0;
+        int oppCount = 0;
+        int emptyCount = 0;
 
+        // Recorremos las 4 celdas virtualmente
         for (int i = 0; i < 4; i++)
         {
-            int val = board[c + dc * i, r + dr * i];
-            if (val == player) my++;
-            else if (val == 0) empty++;
-            else opp++;
+            int c = c0 + (i * dc);
+            int r = r0 + (i * dr);
+            int cell = board[c, r];
+
+            if (cell == player) myCount++;
+            else if (cell == opp) oppCount++;
+            else emptyCount++;
         }
 
-        if (my == 4) return 10000;
-        if (my == 3 && empty == 1) return 100;
-        if (my == 2 && empty == 2) return 10;
+        // --- Lógica de Puntuación ---
 
-        if (opp == 3 && empty == 1) return -80;
-        if (opp == 2 && empty == 2) return -5;
+        if (myCount == 4) return 100000;
+        if (oppCount == 4) return -100000;
 
-        return 0;
+        // Ventana mixta (sucia), no vale nada
+        if (myCount > 0 && oppCount > 0) return 0;
+
+        int score = 0;
+
+        // Ataque
+        if (myCount == 3 && emptyCount == 1) score += 100;
+        else if (myCount == 2 && emptyCount == 2) score += 10;
+
+        // Defensa (Bloqueo)
+        // NOTA: Penalizamos fuertemente dejar ganar al rival
+        if (oppCount == 3 && emptyCount == 1) score -= 8000;
+
+        return score;
     }
 }
+
