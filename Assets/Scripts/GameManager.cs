@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using UnityEngine;
 using static GameManager;
 
@@ -26,6 +27,7 @@ public class GameManager : MonoBehaviour
     // AMBAS IAs
     public NegaScoutAI NegaScoutAI;
     public NegamaxAB NegamaxAB;
+    public MiniMaxAI MiniMaxAI;
 
     [Header("Configuración IA")]
     public bool usarNegamaxAB = true; // Cambia esto para elegir IA
@@ -36,8 +38,24 @@ public class GameManager : MonoBehaviour
         InitializeBoard();
         NegaScoutAI = new NegaScoutAI();
         NegamaxAB = new NegamaxAB();
+        MiniMaxAI = new MiniMaxAI();
 
-        Debug.Log("IA activa: " + (usarNegamaxAB ? "NegamaxAB" : "NegaScout"));
+        if (GameSettings.Instance != null)
+        {
+            currentMode = GameSettings.Instance.selectedMode;
+            playerVsAIType = GameSettings.Instance.playerVsAIType;
+            iaType1 = GameSettings.Instance.iaType1;
+            iaType2 = GameSettings.Instance.iaType2;
+        }
+
+        Debug.Log($"[GameManager] Modo: {currentMode}, PlayerVsIA: {playerVsAIType}, IA1: {iaType1}, IA2: {iaType2}");
+
+        // Si entras directo en modo IA vs IA, puedes lanzar la corrutina aquí:
+        if (currentMode == GameMode.IAvsIA)
+        {
+            StartCoroutine(IAvsIACoroutine());
+        }
+
     }
 
     void InitializeBoard()
@@ -53,7 +71,8 @@ public class GameManager : MonoBehaviour
 
     public void PlayerMove(int column)
     {
-        if (isIAvsIAMode) return;
+        if (currentMode != GameMode.PlayerVSIA) 
+            return; 
 
         for (int row = 0; row < ROWS; row++)
         {
@@ -64,15 +83,17 @@ public class GameManager : MonoBehaviour
 
                 if (CheckWin(board, 1))
                 {
-                    Debug.Log("Gana el player");
+                    Debug.Log("Gana el jugador");
                     return;
                 }
 
                 AIMoveSingle();
+
                 return;
             }
         }
     }
+
 
     // ══════════════════════════════════════════════════════════════════
     // MÉTODO AIMove MODIFICADO
@@ -125,6 +146,104 @@ public class GameManager : MonoBehaviour
         }
     }
     // ══════════════════════════════════════════════════════════════════
+
+    IEnumerator IAvsIACoroutine()
+    {
+        isIAvsIAMode = true;
+        int currentPlayer = 1; // IA1 empieza (rojo)
+
+        while (true)
+        {
+            if (CheckWin(board, 1) || CheckWin(board, -1) || IsBoardFull(board))
+                break;
+
+            yield return new WaitForSeconds(0.3f);
+
+            AIType tipoActual = (currentPlayer == 1) ? iaType1 : iaType2;
+
+            string nombreIA;
+            long nodosVisitados;
+            int bestCol = GetBestMoveForAI(tipoActual, currentPlayer, out nombreIA, out nodosVisitados);
+
+            if (bestCol < 0)
+            {
+                Debug.Log($"[{nombreIA}] no encuentra movimientos válidos.");
+                break;
+            }
+
+            for (int row = 0; row < ROWS; row++)
+            {
+                if (board[bestCol, row] == 0)
+                {
+                    board[bestCol, row] = currentPlayer;
+                    Color color = (currentPlayer == 1) ? Color.red : Color.yellow;
+                    UpdateVisual(bestCol, row, color);
+
+                    Debug.Log($"[{nombreIA}] ({(currentPlayer == 1 ? "IA1" : "IA2")}) jugó columna {bestCol + 1} (nodos: {nodosVisitados})");
+
+                    if (CheckWin(board, currentPlayer))
+                    {
+                        Debug.Log($"¡Gana {nombreIA} como {(currentPlayer == 1 ? "IA1" : "IA2")}!");
+                        isIAvsIAMode = false;
+                        yield break;
+                    }
+
+                    break;
+                }
+            }
+
+            if (IsBoardFull(board))
+            {
+                Debug.Log("Empate en IA vs IA.");
+                isIAvsIAMode = false;
+                yield break;
+            }
+
+            currentPlayer = -currentPlayer;
+        }
+
+        isIAvsIAMode = false;
+    }
+
+    int GetBestMoveForAI(AIType tipo, int player, out string nombreIA, out long nodosVisitados)
+    {
+        int bestCol = -1;
+        nombreIA = "";
+        nodosVisitados = 0;
+
+        switch (tipo)
+        {
+            case AIType.NegamaxAB:
+                bestCol = NegamaxAB.GetBestMove(board, searchDepth, player);
+                nombreIA = "NEGAMAX AB";
+                nodosVisitados = NegamaxAB.NodesVisited;
+                break;
+
+            case AIType.NegaScout:
+                bestCol = NegaScoutAI.GetBestMove(board, searchDepth, player);
+                nombreIA = "NEGASCOUT";
+                nodosVisitados = NegaScoutAI.NodesVisited;
+                break;
+
+            case AIType.MiniMax:
+                nombreIA = "MINIMAX";
+                // bestCol = MiniMaxAI.GetBestMove(board, searchDepth, player);
+                Debug.LogWarning("MiniMax aún no implementado.");
+                break;
+        }
+
+        return bestCol;
+    }
+
+    bool IsBoardFull(int[,] b)
+    {
+        for (int c = 0; c < COLUMNS; c++)
+        {
+            if (b[c, ROWS - 1] == 0)
+                return false;
+        }
+        return true;
+    }
 
     void UpdateVisual(int column, int row, Color color)
     {
@@ -191,26 +310,17 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
-    //Funciones para seleccionar ia y player
-
-    public void SetPlayerVsAI(int aiIndex)
+    public void SetGameMode(int modeIndex)
     {
-        playerVsAIType = (AIType)aiIndex;
-        Debug.Log($"Player vs IA: ahora usas {playerVsAIType}");
+        currentMode = (GameMode)modeIndex;
+        Debug.Log("Modo de juego cambiado a: " + currentMode);
+
+        StopAllCoroutines();  
+        isIAvsIAMode = false;
+
+        if (currentMode == GameMode.IAvsIA)
+        {
+            StartCoroutine(IAvsIACoroutine());
+        }
     }
-
-    public void SetIA1Type(int aiIndex)
-    {
-        iaType1 = (AIType)aiIndex;
-        Debug.Log($"IA1 ahora es {iaType1}");
-    }
-
-    public void SetIA2Type(int aiIndex)
-    {
-        iaType2 = (AIType)aiIndex;
-        Debug.Log($"IA2 ahora es {iaType2}");
-    }
-
-
-
 }
