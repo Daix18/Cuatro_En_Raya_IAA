@@ -102,7 +102,8 @@ public class GameManager : MonoBehaviour
 
         string nombreIA;
         long nodos;
-        int bestCol = GetBestMoveForAI(tipoIA, aiPlayer, out nombreIA, out nodos);
+        double tiempoMs;
+        int bestCol = GetBestMoveForAI(tipoIA, aiPlayer, out nombreIA, out nodos, out tiempoMs);
 
         if (bestCol < 0)
         {
@@ -117,7 +118,7 @@ public class GameManager : MonoBehaviour
                 board[bestCol, row] = aiPlayer;
                 UpdateVisual(bestCol, row, Color.yellow);
 
-                Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} | nodos: {nodos}");
+                Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} | nodos: {nodos} | tiempo: {tiempoMs:F2}ms");
 
                 if (CheckWin(board, aiPlayer))
                 {
@@ -150,7 +151,8 @@ public class GameManager : MonoBehaviour
 
             string nombreIA;
             long nodos;
-            int bestCol = GetBestMoveForAI(tipoActual, currentPlayer, out nombreIA, out nodos);
+            double tiempoMs;
+            int bestCol = GetBestMoveForAI(tipoActual, currentPlayer, out nombreIA, out nodos, out tiempoMs);
 
             if (bestCol < 0)
             {
@@ -165,7 +167,7 @@ public class GameManager : MonoBehaviour
                     board[bestCol, r] = currentPlayer;
                     UpdateVisual(bestCol, r, currentPlayer == 1 ? Color.red : Color.yellow);
 
-                    Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} | nodos: {nodos}");
+                    Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} | nodos: {nodos} | tiempo: {tiempoMs:F2}ms");
 
                     if (CheckWin(board, currentPlayer))
                     {
@@ -193,44 +195,60 @@ public class GameManager : MonoBehaviour
     // ──────────────────────────────────────────────────────────────
     // SELECCIÓN DE IA
     // ──────────────────────────────────────────────────────────────
-    int GetBestMoveForAI(AIType tipo, int player, out string nombreIA, out long nodos)
+    int GetBestMoveForAI(AIType tipo, int player, out string nombreIA, out long nodos, out double tiempoMs)
     {
         int bestCol = -1;
         nombreIA = "";
         nodos = 0;
+        tiempoMs = 0;
+
+        System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
 
         switch (tipo)
         {
             case AIType.NegamaxAB:
                 nombreIA = "NEGAMAX AB";
+                stopwatch.Start();
                 bestCol = NegamaxAB.GetBestMove(board, searchDepth, player);
+                stopwatch.Stop();
                 nodos = NegamaxAB.NodesVisited;
+                tiempoMs = stopwatch.Elapsed.TotalMilliseconds;
                 break;
 
             case AIType.NegaScout:
                 nombreIA = "NEGASCOUT";
+                stopwatch.Start();
                 bestCol = NegaScoutAI.GetBestMove(board, searchDepth, player);
+                stopwatch.Stop();
                 nodos = NegaScoutAI.NodesVisited;
+                tiempoMs = stopwatch.Elapsed.TotalMilliseconds;
                 break;
 
             case AIType.MiniMax:
                 nombreIA = "MINIMAX";
+                stopwatch.Start();
                 bestCol = MiniMaxAI.GetBestMove(board, searchDepth, player);
+                stopwatch.Stop();
                 nodos = MiniMaxAI.NodesVisited;
+                tiempoMs = stopwatch.Elapsed.TotalMilliseconds;
                 break;
 
             case AIType.MTDf:
                 nombreIA = "MTD(f)";
-                bestCol = MTDfAI.GetBestMove(board, searchDepth, player); 
-    
-             // Y ahora podemos obtener los nodos de la propiedad pública:
-               nodos = MTDfAI.NodesVisited; 
+                stopwatch.Start();
+                bestCol = MTDfAI.GetBestMove(board, searchDepth, player);
+                stopwatch.Stop();
+                nodos = MTDfAI.NodesVisited;
+                tiempoMs = stopwatch.Elapsed.TotalMilliseconds;
                 break;
 
             case AIType.BuscaAsp:
                 nombreIA = "BUSCA ASPIRACIONAL";
+                stopwatch.Start();
                 bestCol = BuscaAspAI.GetBestMove(board, searchDepth, player);
+                stopwatch.Stop();
                 nodos = BuscaAspAI.NodesVisited;
+                tiempoMs = stopwatch.Elapsed.TotalMilliseconds;
                 break;
         }
 

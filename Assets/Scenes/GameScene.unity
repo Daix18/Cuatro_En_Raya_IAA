@@ -3397,12 +3397,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   panel: {fileID: 1930694215}
-  selectedAI: 0
-  playerVsAIType: 0
+  playerVsAIType: 2
   iaType1: 0
   iaType2: 1
-  currentMode: 1
-  usarNegamaxAB: 1
+  currentMode: 0
+  searchDepth: 5
 --- !u!4 &1812774322
 Transform:
   m_ObjectHideFlags: 0
