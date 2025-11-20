@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using UnityEngine;
-using static GameManager;
 
 public class GameManager : MonoBehaviour
 {
@@ -14,7 +13,6 @@ public class GameManager : MonoBehaviour
     public enum AIType { MiniMax, NegamaxAB, NegaScout, MTDf, BuscaAsp }
     public enum GameMode { PlayerVSIA, IAvsIA }
 
-    public AIType selectedAI;
     public AIType playerVsAIType;
     public AIType iaType1;
     public AIType iaType2;

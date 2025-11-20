@@ -4090,9 +4090,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   selectedMode: 0
-  playerVsAIType: 2
-  iaType1: 1
-  iaType2: 2
+  playerVsAIType: 0
+  iaType1: 0
+  iaType2: 0
 --- !u!1 &1061386851
 GameObject:
   m_ObjectHideFlags: 0
