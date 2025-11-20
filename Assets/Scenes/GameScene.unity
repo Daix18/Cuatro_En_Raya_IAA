@@ -3400,9 +3400,9 @@ MonoBehaviour:
   selectedAI: 0
   playerVsAIType: 0
   iaType1: 0
-  iaType2: 0
-  currentMode: 0
-  usarNegamaxAB: 0
+  iaType2: 1
+  currentMode: 1
+  usarNegamaxAB: 1
 --- !u!4 &1812774322
 Transform:
   m_ObjectHideFlags: 0

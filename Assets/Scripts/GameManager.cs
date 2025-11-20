@@ -12,7 +12,7 @@ public class GameManager : MonoBehaviour
 
     public Transform panel;
 
-    public enum AIType { MiniMax, NegamaxAB, NegaScout}
+    public enum AIType { MiniMax, NegamaxAB, NegaScout,MTDf } //CAMBIO AÑADIDO
     public enum GameMode { PlayerVSIA, IAvsIA}
     public AIType selectedAI;
 
@@ -28,6 +28,7 @@ public class GameManager : MonoBehaviour
     public NegaScoutAI NegaScoutAI;
     public NegamaxAB NegamaxAB;
     public MiniMaxAI MiniMaxAI;
+    public MTDAlgorithm MTDfAI;// CAMBIO AÑADIDO
 
     [Header("Configuración IA")]
     public bool usarNegamaxAB = true; // Cambia esto para elegir IA
@@ -38,7 +39,7 @@ public class GameManager : MonoBehaviour
         InitializeBoard();
         NegaScoutAI = new NegaScoutAI();
         NegamaxAB = new NegamaxAB();
-        MiniMaxAI = new MiniMaxAI();
+        MiniMaxAI = new MiniMaxAI();//CAMBIO AÑADIDO
 
         if (GameSettings.Instance != null)
         {
@@ -226,9 +227,17 @@ public class GameManager : MonoBehaviour
                 break;
 
             case AIType.MiniMax:
+                bestCol = MiniMaxAI.GetBestMove(board, searchDepth, player);
                 nombreIA = "MINIMAX";
+                nodosVisitados = MiniMaxAI.NodesVisited;
                 // bestCol = MiniMaxAI.GetBestMove(board, searchDepth, player);
-                Debug.LogWarning("MiniMax aún no implementado.");
+                break;
+
+            case AIType.MTDf:
+                bestCol = MTDfAI.GetBestMove(board, searchDepth);
+                nombreIA = "MTDf";
+                nodosVisitados = MTDfAI.NodesVisited;
+                // bestCol = MiniMaxAI.GetBestMove(board, searchDepth, player);
                 break;
         }
 
