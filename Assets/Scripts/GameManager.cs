@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem.Controls;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -81,6 +83,7 @@ public class GameManager : MonoBehaviour
                 if (CheckWin(board, 1))
                 {
                     Debug.Log("Gana el jugador");
+                    SceneManager.LoadScene(0);
                     return;
                 }
 
@@ -117,7 +120,11 @@ public class GameManager : MonoBehaviour
                 Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} | nodos: {nodos}");
 
                 if (CheckWin(board, aiPlayer))
+                {
                     Debug.Log($"¡Gana la IA {nombreIA}!");
+                    SceneManager.LoadScene(0);
+                    return;
+                }
 
                 return;
             }
