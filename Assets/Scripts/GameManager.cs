@@ -9,37 +9,41 @@ public class GameManager : MonoBehaviour
     public static int COLUMNS = 7;
 
     public int[,] board = new int[COLUMNS, ROWS];
-
     public Transform panel;
 
-    public enum AIType { MiniMax, NegamaxAB, NegaScout}
-    public enum GameMode { PlayerVSIA, IAvsIA}
-    public AIType selectedAI;
+    public enum AIType { MiniMax, NegamaxAB, NegaScout, MTDf, BuscaAsp }
+    public enum GameMode { PlayerVSIA, IAvsIA }
 
+    public AIType selectedAI;
     public AIType playerVsAIType;
     public AIType iaType1;
     public AIType iaType2;
 
     bool isIAvsIAMode = false;
-
     public GameMode currentMode = GameMode.PlayerVSIA;
 
-    // AMBAS IAs
+    // IA existentes
     public NegaScoutAI NegaScoutAI;
     public NegamaxAB NegamaxAB;
     public MiniMaxAI MiniMaxAI;
+    public MTDAlgorithm MTDfAI;
+    public BuscaAspAI BuscaAspAI;       
 
     [Header("Configuración IA")]
-    public bool usarNegamaxAB = true; // Cambia esto para elegir IA
-    int searchDepth = 6;
+    public int searchDepth = 6;
 
     void Start()
     {
         InitializeBoard();
+
+        // Instanciar IA
         NegaScoutAI = new NegaScoutAI();
         NegamaxAB = new NegamaxAB();
         MiniMaxAI = new MiniMaxAI();
+        MTDfAI = new MTDAlgorithm();
+        BuscaAspAI = new BuscaAspAI();    
 
+        // Informacion del menu
         if (GameSettings.Instance != null)
         {
             currentMode = GameSettings.Instance.selectedMode;
@@ -50,29 +54,24 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"[GameManager] Modo: {currentMode}, PlayerVsIA: {playerVsAIType}, IA1: {iaType1}, IA2: {iaType2}");
 
-        // Si entras directo en modo IA vs IA, puedes lanzar la corrutina aquí:
         if (currentMode == GameMode.IAvsIA)
-        {
             StartCoroutine(IAvsIACoroutine());
-        }
-
     }
 
     void InitializeBoard()
     {
         for (int c = 0; c < COLUMNS; c++)
-        {
             for (int r = 0; r < ROWS; r++)
-            {
                 board[c, r] = 0;
-            }
-        }
     }
 
+    // ──────────────────────────────────────────────────────────────
+    // PLAYER MOVE
+    // ──────────────────────────────────────────────────────────────
     public void PlayerMove(int column)
     {
-        if (currentMode != GameMode.PlayerVSIA) 
-            return; 
+        if (currentMode != GameMode.PlayerVSIA)
+            return;
 
         for (int row = 0; row < ROWS; row++)
         {
@@ -87,42 +86,29 @@ public class GameManager : MonoBehaviour
                     return;
                 }
 
-                AIMoveSingle();
+                AIMoveSingle(playerVsAIType);
 
                 return;
             }
         }
     }
 
-
-    // ══════════════════════════════════════════════════════════════════
-    // MÉTODO AIMove MODIFICADO
-    // ══════════════════════════════════════════════════════════════════
-    void AIMoveSingle()
+    // ──────────────────────────────────────────────────────────────
+    // IA (PLAYER VS IA)
+    // ──────────────────────────────────────────────────────────────
+    void AIMoveSingle(AIType tipoIA)
     {
         int aiPlayer = -1;
-        int bestCol;
-        string nombreIA = "";
-        long nodosVisitados = 0;
 
-        if (usarNegamaxAB)
-        {
-            bestCol = NegamaxAB.GetBestMove(board, searchDepth, aiPlayer);
-            nombreIA = "NEGAMAX AB";
-            nodosVisitados = NegamaxAB.NodesVisited;
-            Debug.Log(" NEGAMAX AB - Columna: {bestCol} - Nodos: {NegamaxAB.NodesVisited}");
-        }
-        else
-        {
-            bestCol = NegaScoutAI.GetBestMove(board, searchDepth, aiPlayer);
-            nombreIA = "NEGASCOUT";
-            nodosVisitados = NegaScoutAI.NodesVisited;
-            Debug.Log(" NEGASCOUT - Columna: {bestCol} - Nodos: {NegaScoutAI.NodesVisited}");
-        }
+        int bestCol;
+        long nodosVisitados;
+        string nombreIA;
+
+        bestCol = GetBestMoveForAI(tipoIA, aiPlayer, out nombreIA, out nodosVisitados);
 
         if (bestCol < 0)
         {
-            Debug.Log("La IA no encuentra movimientos válidos.");
+            Debug.Log($"IA ({nombreIA}) no encuentra movimientos válidos.");
             return;
         }
 
@@ -133,24 +119,23 @@ public class GameManager : MonoBehaviour
                 board[bestCol, row] = aiPlayer;
                 UpdateVisual(bestCol, row, Color.yellow);
 
-                // Mensaje final confirmando qué IA jugó
-                Debug.Log(" {nombreIA} jugó en columna {bestCol + 1} (visitó {nodosVisitados} nodos)");
+                Debug.Log($"{nombreIA} jugó en columna {bestCol + 1} (nodos: {nodosVisitados})");
 
                 if (CheckWin(board, aiPlayer))
-                {
-                    Debug.Log(" ¡Gana la IA ({nombreIA})!");
-                }
+                    Debug.Log($"¡Gana la IA ({nombreIA})!");
 
                 return;
             }
         }
     }
-    // ══════════════════════════════════════════════════════════════════
 
+    // ──────────────────────────────────────────────────────────────
+    // IA vs IA 
+    // ──────────────────────────────────────────────────────────────
     IEnumerator IAvsIACoroutine()
     {
         isIAvsIAMode = true;
-        int currentPlayer = 1; // IA1 empieza (rojo)
+        int currentPlayer = 1;
 
         while (true)
         {
@@ -167,23 +152,22 @@ public class GameManager : MonoBehaviour
 
             if (bestCol < 0)
             {
-                Debug.Log($"[{nombreIA}] no encuentra movimientos válidos.");
+                Debug.Log($"{nombreIA} no encuentra movimientos válidos.");
                 break;
             }
 
-            for (int row = 0; row < ROWS; row++)
+            for (int r = 0; r < ROWS; r++)
             {
-                if (board[bestCol, row] == 0)
+                if (board[bestCol, r] == 0)
                 {
-                    board[bestCol, row] = currentPlayer;
-                    Color color = (currentPlayer == 1) ? Color.red : Color.yellow;
-                    UpdateVisual(bestCol, row, color);
+                    board[bestCol, r] = currentPlayer;
+                    UpdateVisual(bestCol, r, currentPlayer == 1 ? Color.red : Color.yellow);
 
-                    Debug.Log($"[{nombreIA}] ({(currentPlayer == 1 ? "IA1" : "IA2")}) jugó columna {bestCol + 1} (nodos: {nodosVisitados})");
+                    Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} (nodos: {nodosVisitados})");
 
                     if (CheckWin(board, currentPlayer))
                     {
-                        Debug.Log($"¡Gana {nombreIA} como {(currentPlayer == 1 ? "IA1" : "IA2")}!");
+                        Debug.Log($"¡Gana {nombreIA}!");
                         isIAvsIAMode = false;
                         yield break;
                     }
@@ -194,9 +178,8 @@ public class GameManager : MonoBehaviour
 
             if (IsBoardFull(board))
             {
-                Debug.Log("Empate en IA vs IA.");
-                isIAvsIAMode = false;
-                yield break;
+                Debug.Log("Empate entre IAs");
+                break;
             }
 
             currentPlayer = -currentPlayer;
@@ -205,122 +188,89 @@ public class GameManager : MonoBehaviour
         isIAvsIAMode = false;
     }
 
-    int GetBestMoveForAI(AIType tipo, int player, out string nombreIA, out long nodosVisitados)
+    // ──────────────────────────────────────────────────────────────
+    // GENERALIZACION DE BUSQUEDA PARA TODAS LAS IAs
+    // ──────────────────────────────────────────────────────────────
+    int GetBestMoveForAI(AIType tipo, int player, out string nombreIA, out long nodos)
     {
         int bestCol = -1;
         nombreIA = "";
-        nodosVisitados = 0;
+        nodos = 0;
 
         switch (tipo)
         {
             case AIType.NegamaxAB:
-                bestCol = NegamaxAB.GetBestMove(board, searchDepth, player);
                 nombreIA = "NEGAMAX AB";
-                nodosVisitados = NegamaxAB.NodesVisited;
+                bestCol = NegamaxAB.GetBestMove(board, searchDepth, player);
+                nodos = NegamaxAB.NodesVisited;
                 break;
 
             case AIType.NegaScout:
-                bestCol = NegaScoutAI.GetBestMove(board, searchDepth, player);
                 nombreIA = "NEGASCOUT";
-                nodosVisitados = NegaScoutAI.NodesVisited;
+                bestCol = NegaScoutAI.GetBestMove(board, searchDepth, player);
+                nodos = NegaScoutAI.NodesVisited;
                 break;
 
             case AIType.MiniMax:
                 nombreIA = "MINIMAX";
-                // bestCol = MiniMaxAI.GetBestMove(board, searchDepth, player);
-                Debug.LogWarning("MiniMax aún no implementado.");
+                Debug.LogWarning("MiniMax no implementado.");
+                break;
+
+            case AIType.MTDf:
+                nombreIA = "MTD(f)";
+                int? m = MTDfAI.MTD(board);
+                bestCol = m.HasValue ? m.Value : -1;
+                nodos = 0;
+                break;
+
+            case AIType.BuscaAsp:
+                nombreIA = "BUSCA ASPIRACIONAL";
+                bestCol = BuscaAspAI.GetBestMove(board, searchDepth, player);
+                nodos = BuscaAspAI.NodesVisited;
                 break;
         }
 
         return bestCol;
     }
 
+    // ──────────────────────────────────────────────────────────────
+    // UTILIDADES
+    // ──────────────────────────────────────────────────────────────
     bool IsBoardFull(int[,] b)
     {
         for (int c = 0; c < COLUMNS; c++)
-        {
-            if (b[c, ROWS - 1] == 0)
-                return false;
-        }
+            if (b[c, ROWS - 1] == 0) return false;
         return true;
     }
 
-    void UpdateVisual(int column, int row, Color color)
+    void UpdateVisual(int c, int r, Color color)
     {
-        Transform circle = panel.GetChild(column).GetChild(row);
-        var image = circle.GetComponent<UnityEngine.UI.Image>();
-        image.color = color;
-        Debug.Log("Column " + column + ", Row " + row + " -> Color: " + color);
+        var circle = panel.GetChild(c).GetChild(r).GetComponent<UnityEngine.UI.Image>();
+        circle.color = color;
     }
 
-    bool CheckWin(int[,] b, int player)
+    bool CheckWin(int[,] b, int p)
     {
-        // Horizontal
         for (int c = 0; c < COLUMNS - 3; c++)
-        {
             for (int r = 0; r < ROWS; r++)
-            {
-                if (b[c, r] == player &&
-                    b[c + 1, r] == player &&
-                    b[c + 2, r] == player &&
-                    b[c + 3, r] == player)
+                if (b[c, r] == p && b[c + 1, r] == p && b[c + 2, r] == p && b[c + 3, r] == p)
                     return true;
-            }
-        }
 
-        // Vertical
         for (int c = 0; c < COLUMNS; c++)
-        {
             for (int r = 0; r < ROWS - 3; r++)
-            {
-                if (b[c, r] == player &&
-                    b[c, r + 1] == player &&
-                    b[c, r + 2] == player &&
-                    b[c, r + 3] == player)
+                if (b[c, r] == p && b[c, r + 1] == p && b[c, r + 2] == p && b[c, r + 3] == p)
                     return true;
-            }
-        }
 
-        // Diagonal /
         for (int c = 0; c < COLUMNS - 3; c++)
-        {
             for (int r = 0; r < ROWS - 3; r++)
-            {
-                if (b[c, r] == player &&
-                    b[c + 1, r + 1] == player &&
-                    b[c + 2, r + 2] == player &&
-                    b[c + 3, r + 3] == player)
+                if (b[c, r] == p && b[c + 1, r + 1] == p && b[c + 2, r + 2] == p && b[c + 3, r + 3] == p)
                     return true;
-            }
-        }
 
-        // Diagonal \
         for (int c = 0; c < COLUMNS - 3; c++)
-        {
             for (int r = 3; r < ROWS; r++)
-            {
-                if (b[c, r] == player &&
-                    b[c + 1, r - 1] == player &&
-                    b[c + 2, r - 2] == player &&
-                    b[c + 3, r - 3] == player)
+                if (b[c, r] == p && b[c + 1, r - 1] == p && b[c + 2, r - 2] == p && b[c + 3, r - 3] == p)
                     return true;
-            }
-        }
 
         return false;
-    }
-
-    public void SetGameMode(int modeIndex)
-    {
-        currentMode = (GameMode)modeIndex;
-        Debug.Log("Modo de juego cambiado a: " + currentMode);
-
-        StopAllCoroutines();  
-        isIAvsIAMode = false;
-
-        if (currentMode == GameMode.IAvsIA)
-        {
-            StartCoroutine(IAvsIACoroutine());
-        }
     }
 }

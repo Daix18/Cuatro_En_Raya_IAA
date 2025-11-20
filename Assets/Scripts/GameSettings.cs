@@ -25,10 +25,12 @@ public class GameSettings : MonoBehaviour
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject); // NO se destruye al cambiar de escena
+        DontDestroyOnLoad(gameObject);
     }
 
-    // Estos los llamas desde el menú en vez de los del GameManager
+    // -----------------------------
+    // METODOS PARA LA UI
+    // -----------------------------
     public void SetGameMode(int modeIndex)
     {
         selectedMode = (GameMode)modeIndex;
@@ -53,7 +55,7 @@ public class GameSettings : MonoBehaviour
         Debug.Log($"[Settings] IA2: {iaType2}");
     }
 
-    public void LoadMainGameScene (int level)
+    public void LoadMainGameScene(int level)
     {
         SceneManager.LoadScene(level);
     }
