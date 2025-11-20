@@ -21,7 +21,7 @@ public class MTDAlgorithm
     // CONSTANTES
     const int ROWS = 6;
     const int COLUMNS = 7;
-
+    public long NodesVisited { get; private set; }
     // NOTA: Estas constantes viejas ya no se usan tanto porque la lógica nueva 
     // usa números directos en ScoreWindow, pero las dejamos para evitar errores.
     const int WIN_SCORE = 100000;
@@ -45,7 +45,7 @@ public class MTDAlgorithm
     private int _globalGuess = 0;
 
     public const int MaxIterations = 10;
-    public const int MaxDepth = 7;
+     private int MaxDepth;
 
     public MTDAlgorithm()
     {
@@ -53,9 +53,36 @@ public class MTDAlgorithm
         _transpositionTable = new TranspositionTable();
     }
 
+
+   //Metodo de acceso para el gamemanager
+
+    public int GetBestMove(int[,] board, int SearchDepth)
+    {
+        NodesVisited = 0;
+        // 1. Reiniciar variables si es necesario
+        _maximumExploredDepth = 0;
+        MaxDepth = SearchDepth;
+        // 2. Llamar al algoritmo MTD
+        int? result = MTD(board);
+
+        // 3. Si mtd devuelve un movimiento
+        if (result.HasValue)
+        {
+            return result.Value;
+        }
+        else
+        {
+            // -1 indica error mtd no a encontrado un movimiento o bien tablero lleno
+            return -1;
+        }
+    }
+
+   
+
     // --- LÓGICA MTD(f) (Sin cambios aquí) ---
     ScoringMove Test(int[,] board, int depth, int gamma)
     {
+        NodesVisited++;
         int bestMove = 0, bestScore = int.MinValue;
         ScoringMove scoringMove = new ScoringMove();
         int currentPlayer = (depth % 2 == 0) ? -1 : 1;
@@ -115,10 +142,12 @@ public class MTDAlgorithm
         return new ScoringMove(bestMove, bestScore);
     }
 
+    //Metodo de inicializacion de mtd
+
     public int? MTD(int[,] board)
     {
         int gamma, guess = _globalGuess;
-        ScoringMove scoringMove = new ScoringMove(-1, 0);
+        ScoringMove scoringMove = new ScoringMove(-1, 0);//inicializado a mov -1 no valido
         _maximumExploredDepth = 0;
 
         for (int i = 0; i < MaxIterations; i++)
@@ -135,6 +164,7 @@ public class MTDAlgorithm
         _globalGuess = guess;
         return scoringMove.Move;
     }
+
 
     // --- UTILIDADES PRIVADAS ---
     private bool IsColumnPlayable(int[,] board, int col) => board[col, ROWS - 1] == 0;
