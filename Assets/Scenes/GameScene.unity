@@ -3397,7 +3397,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   panel: {fileID: 1930694215}
-  playerVsAIType: 2
+  playerVsAIType: 4
   iaType1: 0
   iaType2: 1
   currentMode: 0
