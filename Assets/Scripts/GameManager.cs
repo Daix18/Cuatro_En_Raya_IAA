@@ -22,12 +22,12 @@ public class GameManager : MonoBehaviour
     bool isIAvsIAMode = false;
     public GameMode currentMode = GameMode.PlayerVSIA;
 
-    // IA existentes
+    // Todas las IA
     public NegaScoutAI NegaScoutAI;
     public NegamaxAB NegamaxAB;
     public MiniMaxAI MiniMaxAI;
     public MTDAlgorithm MTDfAI;
-    public BuscaAspAI BuscaAspAI;       
+    public BuscaAspAI BuscaAspAI;
 
     [Header("Configuración IA")]
     public int searchDepth = 6;
@@ -41,9 +41,9 @@ public class GameManager : MonoBehaviour
         NegamaxAB = new NegamaxAB();
         MiniMaxAI = new MiniMaxAI();
         MTDfAI = new MTDAlgorithm();
-        BuscaAspAI = new BuscaAspAI();    
+        BuscaAspAI = new BuscaAspAI();
 
-        // Informacion del menu
+        // Recibir configuración del menú
         if (GameSettings.Instance != null)
         {
             currentMode = GameSettings.Instance.selectedMode;
@@ -66,7 +66,7 @@ public class GameManager : MonoBehaviour
     }
 
     // ──────────────────────────────────────────────────────────────
-    // PLAYER MOVE
+    // JUGADOR HUMANO
     // ──────────────────────────────────────────────────────────────
     public void PlayerMove(int column)
     {
@@ -87,28 +87,25 @@ public class GameManager : MonoBehaviour
                 }
 
                 AIMoveSingle(playerVsAIType);
-
                 return;
             }
         }
     }
 
     // ──────────────────────────────────────────────────────────────
-    // IA (PLAYER VS IA)
+    // JUGADA DE LA IA (PLAYER VS IA)
     // ──────────────────────────────────────────────────────────────
     void AIMoveSingle(AIType tipoIA)
     {
         int aiPlayer = -1;
 
-        int bestCol;
-        long nodosVisitados;
         string nombreIA;
-
-        bestCol = GetBestMoveForAI(tipoIA, aiPlayer, out nombreIA, out nodosVisitados);
+        long nodos;
+        int bestCol = GetBestMoveForAI(tipoIA, aiPlayer, out nombreIA, out nodos);
 
         if (bestCol < 0)
         {
-            Debug.Log($"IA ({nombreIA}) no encuentra movimientos válidos.");
+            Debug.Log($"IA {nombreIA} no encuentra movimientos válidos.");
             return;
         }
 
@@ -119,10 +116,10 @@ public class GameManager : MonoBehaviour
                 board[bestCol, row] = aiPlayer;
                 UpdateVisual(bestCol, row, Color.yellow);
 
-                Debug.Log($"{nombreIA} jugó en columna {bestCol + 1} (nodos: {nodosVisitados})");
+                Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} | nodos: {nodos}");
 
                 if (CheckWin(board, aiPlayer))
-                    Debug.Log($"¡Gana la IA ({nombreIA})!");
+                    Debug.Log($"¡Gana la IA {nombreIA}!");
 
                 return;
             }
@@ -130,7 +127,7 @@ public class GameManager : MonoBehaviour
     }
 
     // ──────────────────────────────────────────────────────────────
-    // IA vs IA 
+    // IA VS IA
     // ──────────────────────────────────────────────────────────────
     IEnumerator IAvsIACoroutine()
     {
@@ -147,8 +144,8 @@ public class GameManager : MonoBehaviour
             AIType tipoActual = (currentPlayer == 1) ? iaType1 : iaType2;
 
             string nombreIA;
-            long nodosVisitados;
-            int bestCol = GetBestMoveForAI(tipoActual, currentPlayer, out nombreIA, out nodosVisitados);
+            long nodos;
+            int bestCol = GetBestMoveForAI(tipoActual, currentPlayer, out nombreIA, out nodos);
 
             if (bestCol < 0)
             {
@@ -163,7 +160,7 @@ public class GameManager : MonoBehaviour
                     board[bestCol, r] = currentPlayer;
                     UpdateVisual(bestCol, r, currentPlayer == 1 ? Color.red : Color.yellow);
 
-                    Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} (nodos: {nodosVisitados})");
+                    Debug.Log($"[{nombreIA}] jugó columna {bestCol + 1} | nodos: {nodos}");
 
                     if (CheckWin(board, currentPlayer))
                     {
@@ -178,7 +175,7 @@ public class GameManager : MonoBehaviour
 
             if (IsBoardFull(board))
             {
-                Debug.Log("Empate entre IAs");
+                Debug.Log("Empate entre IAs.");
                 break;
             }
 
@@ -189,7 +186,7 @@ public class GameManager : MonoBehaviour
     }
 
     // ──────────────────────────────────────────────────────────────
-    // GENERALIZACION DE BUSQUEDA PARA TODAS LAS IAs
+    // SELECCIÓN DE IA
     // ──────────────────────────────────────────────────────────────
     int GetBestMoveForAI(AIType tipo, int player, out string nombreIA, out long nodos)
     {
@@ -213,14 +210,15 @@ public class GameManager : MonoBehaviour
 
             case AIType.MiniMax:
                 nombreIA = "MINIMAX";
-                Debug.LogWarning("MiniMax no implementado.");
+                bestCol = MiniMaxAI.GetBestMove(board, searchDepth, player);
+                nodos = MiniMaxAI.NodesVisited;
                 break;
 
             case AIType.MTDf:
                 nombreIA = "MTD(f)";
                 int? m = MTDfAI.MTD(board);
                 bestCol = m.HasValue ? m.Value : -1;
-                nodos = 0;
+                nodos = 0; // No implementaste nodos
                 break;
 
             case AIType.BuscaAsp:
