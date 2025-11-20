@@ -214,9 +214,10 @@ public class GameManager : MonoBehaviour
 
             case AIType.MTDf:
                 nombreIA = "MTD(f)";
-                int? m = MTDfAI.MTD(board);
-                bestCol = m.HasValue ? m.Value : -1;
-                nodos = 0; // No implementaste nodos
+                bestCol = MTDfAI.GetBestMove(board, searchDepth, player); 
+    
+             // Y ahora podemos obtener los nodos de la propiedad pública:
+               nodos = MTDfAI.NodesVisited; 
                 break;
 
             case AIType.BuscaAsp:

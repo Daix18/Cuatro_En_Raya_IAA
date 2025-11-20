@@ -45,7 +45,7 @@ public class MTDAlgorithm
     private int _globalGuess = 0;
 
     public const int MaxIterations = 10;
-     private int MaxDepth;
+    private int MaxDepth;
 
     public MTDAlgorithm()
     {
@@ -56,14 +56,14 @@ public class MTDAlgorithm
 
    //Metodo de acceso para el gamemanager
 
-    public int GetBestMove(int[,] board, int SearchDepth)
+    public int GetBestMove(int[,] board, int SearchDepth, int initialPlayer)
     {
         NodesVisited = 0;
         // 1. Reiniciar variables si es necesario
         _maximumExploredDepth = 0;
         MaxDepth = SearchDepth;
         // 2. Llamar al algoritmo MTD
-        int? result = MTD(board);
+        int? result = MTD(board, initialPlayer);
 
         // 3. Si mtd devuelve un movimiento
         if (result.HasValue)
@@ -80,12 +80,12 @@ public class MTDAlgorithm
    
 
     // --- LÓGICA MTD(f) (Sin cambios aquí) ---
-    ScoringMove Test(int[,] board, int depth, int gamma)
+    ScoringMove Test(int[,] board, int depth, int gamma, int initialPlayer)
     {
         NodesVisited++;
         int bestMove = 0, bestScore = int.MinValue;
         ScoringMove scoringMove = new ScoringMove();
-        int currentPlayer = (depth % 2 == 0) ? -1 : 1;
+       int currentPlayer = (depth % 2 == 0) ? initialPlayer : -initialPlayer;
 
         if (depth > _maximumExploredDepth) _maximumExploredDepth = depth;
 
@@ -122,7 +122,7 @@ public class MTDAlgorithm
         foreach (int move in moves)
         {
             ApplyMove(board, move, currentPlayer);
-            scoringMove = Test(board, depth + 1, -gamma);
+            scoringMove = Test(board, depth + 1, -gamma, initialPlayer);
             int invertedScore = -scoringMove.Score;
             UndoMove(board, move);
 
@@ -144,7 +144,7 @@ public class MTDAlgorithm
 
     //Metodo de inicializacion de mtd
 
-    public int? MTD(int[,] board)
+    public int? MTD(int[,] board, int initialPlayer)
     {
         int gamma, guess = _globalGuess;
         ScoringMove scoringMove = new ScoringMove(-1, 0);//inicializado a mov -1 no valido
@@ -153,7 +153,7 @@ public class MTDAlgorithm
         for (int i = 0; i < MaxIterations; i++)
         {
             gamma = guess;
-            scoringMove = Test(board, 0, gamma - 1);
+            scoringMove = Test(board, 0, gamma - 1, initialPlayer);
             guess = scoringMove.Score;
             if (gamma == guess)
             {
