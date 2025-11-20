@@ -8,6 +8,7 @@ public class MiniMaxAI
 
     const int ROWS = 6;
     const int COLUMNS = 7;
+    const int WIN_SCORE = 1000000;
 
 
     // --- MÉTODO RAÍZ ---
@@ -18,8 +19,8 @@ public class MiniMaxAI
         int bestScore = int.MinValue;
 
         // Configuración inicial de Alpha-Beta
-        int alpha = int.MinValue;
-        int beta = int.MaxValue;
+        int alpha = int.MinValue/4;
+        int beta = int.MaxValue/4;
 
         List<int> moves = GetOrderedMoves(board);
 
@@ -70,7 +71,7 @@ public class MiniMaxAI
         bool isMaximizing = (currentPlayer == aiPlayer);
 
         // Inicializamos bestScore con el peor valor posible para cada caso
-        int bestScore = isMaximizing ? int.MinValue : int.MaxValue;
+        int bestScore = isMaximizing ? beta : alpha;
 
         List<int> moves = GetOrderedMoves(board);
 
@@ -261,8 +262,8 @@ public class MiniMaxAI
             }
 
             if (aiCount > 0 && oppCount > 0) return 0;
-            if (aiCount == 4) return int.MaxValue;
-            if (oppCount == 4) return int.MinValue;
+            if (aiCount == 4) return WIN_SCORE;
+            if (oppCount == 4) return -WIN_SCORE;
 
             if (aiCount == 3 && emptyCount == 1) return THREE_OPEN;
             if (oppCount == 3 && emptyCount == 1) return -THREE_OPEN;
